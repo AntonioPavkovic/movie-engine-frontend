@@ -47,7 +47,7 @@ export default function Home() {
     setOffset(0);
     setItems([]);
     load(true);
-  }, [type, debouncedQuery]); // Remove load from dependencies
+  }, [type, debouncedQuery]);
 
   const loadMore = () => {
     if (loading || !hasMore) return;
@@ -70,9 +70,6 @@ export default function Home() {
       console.error(e);
     }
   };
-
-  // Debug log to see if type is changing
-  console.log('Current type:', type);
 
   return (
     <main className="p-4 max-w-6xl mx-auto">
@@ -112,7 +109,7 @@ export default function Home() {
 
       {error && <div className="text-red-600 mb-2">{error}</div>}
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-12">
         {items.map(item => <MediaCard key={item.id} item={item} onRate={handleRate} />)}
       </section>
 
@@ -121,7 +118,7 @@ export default function Home() {
           <button className="px-4 py-2 rounded border" disabled>Loading...</button>
         ) : hasMore ? (
           <button onClick={loadMore} className="px-4 py-2 rounded bg-gray-800 text-white">
-            View more results
+            Load more
           </button>
         ) : (
           <div className="text-sm text-gray-500">No more results</div>

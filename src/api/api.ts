@@ -33,7 +33,7 @@ export async function rateMovie(id: number, rating: number) {
   const res = await fetch(url, {
     method: "POST",
     headers: defaultHeaders,
-    body: JSON.stringify({ rating }),
+    body: JSON.stringify({ stars: rating }),
   });
   if (!res.ok) throw new Error(`rateMovie failed: ${res.status}`);
   return res.json();

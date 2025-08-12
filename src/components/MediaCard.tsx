@@ -10,13 +10,18 @@ interface Props {
 export default function MediaCard({ item, onRate }: Props) {
   const [isRating, setIsRating] = useState(false);
   const [hoveredRating, setHoveredRating] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const handleRate = async (rating: number) => {
     setIsRating(true);
+    setError(null);
     try {
       await onRate(item.id, rating);
     } catch (error) {
       console.error('Failed to rate:', error);
+      setError('Failed to submit rating. Please try again.');
+      // Clear error after 3 seconds
+      setTimeout(() => setError(null), 3000);
     } finally {
       setIsRating(false);
     }
@@ -54,7 +59,6 @@ export default function MediaCard({ item, onRate }: Props) {
         </div>
       </div>
 
-
       <div className="mt-4 pt-3 border-t border-gray-100">
         <div className="text-xs text-gray-500 mb-2">Rate this {item.type.toLowerCase()}:</div>
         <div 
@@ -81,6 +85,9 @@ export default function MediaCard({ item, onRate }: Props) {
         </div>
         {isRating && (
           <div className="text-xs text-gray-500 mt-1">Submitting rating...</div>
+        )}
+        {error && (
+          <div className="text-xs text-red-500 mt-1">{error}</div>
         )}
       </div>
     </article>
