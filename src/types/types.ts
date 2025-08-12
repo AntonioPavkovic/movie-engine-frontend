@@ -16,4 +16,9 @@ export interface MediaItem {
   avgRating: number;
   ratingsCount: number;
   casts: CastMember[];
+  
+  cast?: string | any[];
+
+  score?: number;
+  highlights?: any;
 }
