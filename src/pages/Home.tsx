@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import MediaCard from "../components/MediaCard";
-import { fetchTop, rateMovie, advancedSearch } from "../api/api";
+import { fetchTop, rateMovie, searchMoviesWithMinLength } from "../api/api";
 import { useDebounce } from "../hooks/useDebounde";
 import type { MediaType, MediaItem } from "../types/types";
 
@@ -25,72 +25,106 @@ export default function Home() {
       setLoading(true);
       const currentOffset = reset ? 0 : offset;
       
-      let data: MediaItem[] = [];
-      let total = 0;
-      let searchSuggestions: string[] = [];
-      let filters = {};
+      console.log('Loading:', {
+        query: debouncedQuery,
+        type,
+        reset,
+        currentOffset,
+        limit: LIMIT
+      });
+
+      let result: {
+        items: MediaItem[];
+        total: number;
+        hasMore: boolean;
+        filters?: any;
+        suggestions?: string[];
+      };
 
       if (debouncedQuery.length >= 2) {
-
-        const searchResult = await advancedSearch(debouncedQuery, LIMIT, currentOffset);
-        data = searchResult.items;
-        total = searchResult.total;
-        searchSuggestions = searchResult.suggestions || [];
-        filters = searchResult.filters;
+        result = await searchMoviesWithMinLength(debouncedQuery, type, LIMIT, currentOffset);
       } else if (debouncedQuery.length === 0) {
-        data = await fetchTop(type, LIMIT, currentOffset);
-        total = data.length; 
+        result = await fetchTop(type, LIMIT, currentOffset);
       } else {
+        result = {
+          items: [],
+          total: 0,
+          hasMore: false,
+          filters: {},
+          suggestions: []
+        };
+      }
 
-        data = [];
-        total = 0;
+      console.log('Load result:', {
+        itemsCount: result.items?.length || 0,
+        total: result.total,
+        hasMore: result.hasMore
+      });
+
+      if (!result || !Array.isArray(result.items)) {
+        throw new Error('Invalid API response');
       }
 
       if (reset) {
-        setItems(data);
-        setOffset(LIMIT);
-        setTotalResults(total);
-        setSuggestions(searchSuggestions);
-        setAppliedFilters(filters);
+        setItems(result.items);
+        setOffset(result.items.length);
+        setTotalResults(result.total || 0);
+        setSuggestions(result.suggestions || []);
+        setAppliedFilters(result.filters || {});
+        setHasMore(result.hasMore && result.items.length > 0);
       } else {
-        setItems(prev => [...prev, ...data]);
-        setOffset(prev => prev + LIMIT);
+        setItems(prev => [...prev, ...result.items]);
+        setOffset(prev => prev + result.items.length);
+        setHasMore(result.hasMore && result.items.length > 0);
       }
       
-      setHasMore(data.length === LIMIT && (reset ? total > LIMIT : currentOffset + LIMIT < total));
     } catch (e: any) {
+      console.error('Load error:', e);
       setError(e.message || "Failed to load");
       setSuggestions([]);
+      if (reset) {
+        setItems([]);
+        setHasMore(false);
+      }
     } finally {
       setLoading(false);
     }
   }, [offset, debouncedQuery, type]);
 
   useEffect(() => {
+    console.log('Resetting due to change:', { type, debouncedQuery });
     setOffset(0);
     setItems([]);
+    setHasMore(true);
+    setError(null);
     load(true);
   }, [type, debouncedQuery]);
 
-  const loadMore = () => {
-    if (loading || !hasMore) return;
+  const loadMore = useCallback(() => {
+    if (loading || !hasMore) {
+      console.log('Cannot load more:', { loading, hasMore });
+      return;
+    }
+    console.log('Loading more...');
     load(false);
-  };
+  }, [loading, hasMore, load]);
 
   const handleRate = async (id: number, rating: number) => {
     try {
-      setItems(prev => prev.map(it => 
-        it.id === id 
+      setItems(prev => prev.map(item => 
+        item.id === id 
           ? { 
-              ...it, 
-              ratingsCount: it.ratingsCount + 1, 
-              avgRating: ((it.avgRating * it.ratingsCount) + rating) / (it.ratingsCount + 1) 
+              ...item, 
+              ratingsCount: item.ratingsCount + 1, 
+              avgRating: ((item.avgRating * item.ratingsCount) + rating) / (item.ratingsCount + 1) 
             } 
-          : it
+          : item
       ));
+      
       await rateMovie(id, rating);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('Rating error:', e);
+      setError(`Failed to rate movie: ${e.message}`);
     }
   };
 
@@ -138,6 +172,7 @@ export default function Home() {
     <main className="p-4 max-w-6xl mx-auto">
       <header className="mb-4">
         <h1 className="text-3xl font-bold text-gray-800">🎬 Movie Database</h1>
+        <p className="text-gray-600 mt-1">Intelligent search with natural language support</p>
       </header>
 
       <div className="mb-4">
@@ -147,6 +182,12 @@ export default function Home() {
           placeholder="Try: '5 stars', 'excellent action movies after 2015', 'comedy series', 'older than 10 years'"
           className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-lg"
         />
+        
+        {query.length === 1 && (
+          <div className="mt-2 text-sm text-amber-600">
+            Enter at least 2 characters to search
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2 mb-4">
@@ -172,13 +213,17 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Results Info */}
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-gray-700">
           {getResultsText()}
         </h2>
         
-        {/* Applied Filters */}
+        {items.length > 0 && (
+          <p className="text-sm text-gray-500">
+            Showing {items.length} of {totalResults || items.length}
+          </p>
+        )}
+        
         {getAppliedFiltersText() && (
           <div className="mt-1 text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded">
             {getAppliedFiltersText()}
@@ -186,7 +231,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* Suggestions */}
       {suggestions.length > 0 && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-sm text-yellow-800 mb-2">
@@ -206,21 +250,31 @@ export default function Home() {
         </div>
       )}
 
-      {/* Error Message */}
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
           ⚠️ {error}
+          <button 
+            onClick={() => setError(null)}
+            className="ml-2 text-red-500 hover:text-red-700"
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      {/* Results Grid */}
+      {loading && items.length === 0 && (
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2">Loading...</span>
+        </div>
+      )}
+
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {items.map(item => (
-          <MediaCard key={item.id} item={item} onRate={handleRate} />
+        {items.map((item, index) => (
+          <MediaCard key={`${item.id}-${index}`} item={item} onRate={handleRate} />
         ))}
       </section>
 
-      {/* No Results Message */}
       {!loading && items.length === 0 && !error && debouncedQuery.length >= 2 && (
         <div className="text-center py-12 text-gray-500">
           <div className="text-6xl mb-4">🔍</div>
@@ -229,17 +283,17 @@ export default function Home() {
         </div>
       )}
 
-      {/* Load More Button */}
       <div className="mt-8 text-center">
-        {loading ? (
+        {loading && items.length > 0 ? (
           <div className="flex items-center justify-center gap-2">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-            <span>Loading...</span>
+            <span>Loading more...</span>
           </div>
         ) : hasMore && items.length > 0 ? (
           <button 
             onClick={loadMore} 
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            disabled={loading}
           >
             Load More Results
           </button>

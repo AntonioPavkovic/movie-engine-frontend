@@ -12,7 +12,6 @@ const defaultHeaders = {
   "X-API-Key": API_KEY,
 };
 
-// Helper function for consistent error handling
 const handleResponse = async (res: Response) => {
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ message: res.statusText }));
@@ -21,28 +20,74 @@ const handleResponse = async (res: Response) => {
   return res.json();
 };
 
-export async function fetchTop(type: string, limit = 10, offset = 0) {
-  const url = `${BASE}/movies/top?type=${encodeURIComponent(type)}&limit=${limit}`;
-
+export async function fetchTop(type: string, limit = 10, offset = 0): Promise<{
+  items: MediaItem[];
+  total: number;
+  hasMore: boolean;
+}> {
+  // Convert offset to 0-based page number for backend
+  const page = Math.floor(offset / limit);
+  
+  const url = `${BASE}/movies/top?type=${encodeURIComponent(type)}&limit=${limit}&page=${page}`;
   console.log('Fetching top movies:', url);
+  console.log('Offset:', offset, '→ Page:', page);
+  
+  try {
+    const res = await fetch(url, { headers: defaultHeaders });
+    const data = await handleResponse(res);
 
-  const res = await fetch(url, { headers: defaultHeaders });
-  const data = await handleResponse(res);
-  
-  // Format the response data
-  if (Array.isArray(data)) {
-    return data.map(formatMovieToMediaItem);
+    console.log('fetchTop response:', data);
+
+    // Handle your new pagination response format
+    if (data.success && data.data) {
+      const items = Array.isArray(data.data.movies) 
+        ? data.data.movies.map(formatMovieToMediaItem) 
+        : [];
+        
+      return {
+        items,
+        total: data.data.total || 0,
+        hasMore: data.data.hasMore || false,
+      };
+    }
+    
+    // Fallback for old format (array response)
+    if (Array.isArray(data)) {
+      const items = data.map(formatMovieToMediaItem);
+      return {
+        items,
+        total: items.length,
+        hasMore: items.length === limit,
+      };
+    }
+    
+    console.warn('Unexpected fetchTop response format:', data);
+    return {
+      items: [],
+      total: 0,
+      hasMore: false,
+    };
+    
+  } catch (error) {
+    console.error('fetchTop error:', error);
+    return {
+      items: [],
+      total: 0,
+      hasMore: false,
+    };
   }
-  
-  return [];
 }
 
-// Update your searchMovies function to use the formatter
-export async function searchMovies(query: string, type: string, limit = 10, offset = 0) {
-  // Calculate page number from offset
+export async function searchMovies(query: string, type: string, limit = 10, offset = 0): Promise<{
+  items: MediaItem[];
+  total: number;
+  hasMore: boolean;
+  filters?: any;
+  suggestions?: string[];
+}> {
   const page = Math.floor(offset / limit) + 1;
   
-  // Build search query with type filter if specified
+
   let searchQuery = query;
   if (type === "MOVIE") {
     searchQuery = `${query} movies`.trim();
@@ -50,50 +95,97 @@ export async function searchMovies(query: string, type: string, limit = 10, offs
     searchQuery = `${query} series`.trim();
   }
   
-  // Use the correct parameter name 'query' instead of 'q'
   const url = `${BASE}/movies/search?query=${encodeURIComponent(searchQuery)}&page=${page}&limit=${limit}`;
   
   console.log('Searching movies:', url);
   console.log('Original query:', query);
   console.log('Enhanced query:', searchQuery);
-
-  const res = await fetch(url, { headers: defaultHeaders });
-  const data = await handleResponse(res);
-  
-  // Format the response data
-  if (data.success && data.data && Array.isArray(data.data.movies)) {
-    return data.data.movies.map(formatMovieToMediaItem);
-  }
-  
-  return [];
-}
-
-export async function searchMoviesWithMinLength(query: string, type: string, limit = 10, offset = 0): Promise<MediaItem[]> {
-  if (query.length < 2) {
-    return fetchTop(type, limit, offset);
-  }
-  
-  return searchMovies(query, type, limit, offset);
-}
-
-// Advanced search that returns full metadata (total count, filters, suggestions)
-export async function advancedSearch(query: string, limit = 10, offset = 0) {
-  const page = Math.floor(offset / limit) + 1;
-  const url = `${BASE}/movies/search?query=${encodeURIComponent(query)}&page=${page}&limit=${limit}`;
-  
-  console.log('Advanced search:', url);
+  console.log('Page:', page, 'Offset:', offset);
 
   const res = await fetch(url, { headers: defaultHeaders });
   const data = await handleResponse(res);
   
   if (data.success && data.data) {
+    const items = Array.isArray(data.data.movies) 
+      ? data.data.movies.map(formatMovieToMediaItem) 
+      : [];
+      
     return {
-      items: data.data.movies || [],
+      items,
+      total: data.data.total || 0,
+      hasMore: (data.data.page || 1) < (data.data.totalPages || 0),
+      filters: data.data.filters || {},
+      suggestions: data.data.suggestions || [],
+    };
+  }
+  
+  return {
+    items: [],
+    total: 0,
+    hasMore: false,
+    filters: {},
+    suggestions: [],
+  };
+}
+
+export async function searchMoviesWithMinLength(
+  query: string, 
+  type: string, 
+  limit = 10, 
+  offset = 0
+): Promise<{
+  items: MediaItem[];
+  total: number;
+  hasMore: boolean;
+  filters?: any;
+  suggestions?: string[];
+}> {
+  if (query.length < 2) {
+    const topResult = await fetchTop(type, limit, offset);
+    return {
+      items: topResult.items,
+      total: topResult.total,
+      hasMore: topResult.hasMore,
+      filters: {},
+      suggestions: [],
+    };
+  }
+  
+  return searchMovies(query, type, limit, offset);
+}
+
+
+export async function advancedSearch(query: string, limit = 10, offset = 0): Promise<{
+  items: MediaItem[];
+  total: number;
+  totalPages: number;
+  filters: any;
+  suggestions: string[];
+  page: number;
+  hasMore: boolean;
+}> {
+  const page = Math.floor(offset / limit) + 1;
+  const url = `${BASE}/movies/search?query=${encodeURIComponent(query)}&page=${page}&limit=${limit}`;
+  
+  console.log('Advanced search:', url);
+  console.log('Page:', page, 'Offset:', offset);
+
+  const res = await fetch(url, { headers: defaultHeaders });
+  const data = await handleResponse(res);
+  
+  if (data.success && data.data) {
+    const items = Array.isArray(data.data.movies) 
+      ? data.data.movies.map(formatMovieToMediaItem) 
+      : [];
+      
+    return {
+      items,
       total: data.data.total || 0,
       totalPages: data.data.totalPages || 0,
       filters: data.data.filters || {},
       suggestions: data.data.suggestions || [],
-      page: data.data.page || 1
+      page: data.data.page || 1,
+      hasMore: (data.data.page || 1) < (data.data.totalPages || 0),
     };
   }
   
@@ -103,14 +195,14 @@ export async function advancedSearch(query: string, limit = 10, offset = 0) {
     totalPages: 0,
     filters: {},
     suggestions: [],
-    page: 1
+    page: 1,
+    hasMore: false,
   };
 }
 
 // Rate movie function (unchanged)
 export async function rateMovie(id: number, rating: number) {
   const url = `${BASE}/movies/${id}/rate`;
-  
   console.log('Rating movie:', id, 'with', rating, 'stars');
   
   const res = await fetch(url, {
@@ -122,51 +214,37 @@ export async function rateMovie(id: number, rating: number) {
   return handleResponse(res);
 }
 
-// Debug functions for testing (optional - can be removed in production)
-export async function debugDatabaseMovies() {
-  const url = `${BASE}/movies/debug/database-movies`;
-  const res = await fetch(url, { headers: defaultHeaders });
-  return handleResponse(res);
-}
-
-export async function checkIndexExists() {
-  const url = `${BASE}/movies/index-exists`;
-  const res = await fetch(url, { headers: defaultHeaders });
-  return handleResponse(res);
-}
-
-export async function syncMovies() {
-  const url = `${BASE}/movies/sync-search`;
-  const res = await fetch(url, { 
-    method: "POST",
-    headers: defaultHeaders 
-  });
-  return handleResponse(res);
-}
-
-// Test search with wildcard (useful for debugging)
-export async function testSearch() {
-  const url = `${BASE}/movies/search?query=*&limit=5`;
-  const res = await fetch(url, { headers: defaultHeaders });
-  return handleResponse(res);
-}
-
+// Helper function to format backend movie data to frontend MediaItem
 const formatMovieToMediaItem = (movie: any): MediaItem => {
-  // Convert cast string to CastMember array for compatibility
+  // Convert cast data to CastMember array for compatibility
   let castsArray: CastMember[] = [];
   
+  // Handle cast from OpenSearch (string format)
   if (movie.cast && typeof movie.cast === 'string') {
     castsArray = movie.cast.split(', ')
       .filter((name: string) => name.trim())
       .map((name: string, index: number) => ({
-        id: index + 1, // Generate fake ID
-        role: 'Actor', // Default role
+        id: index + 1,
+        role: 'Actor',
         actor: {
-          id: index + 1, // Generate fake actor ID
+          id: index + 1,
           name: name.trim()
         }
       }));
-  } else if (Array.isArray(movie.cast)) {
+  } 
+  // Handle cast from database (array format)
+  else if (movie.casts && Array.isArray(movie.casts)) {
+    castsArray = movie.casts.map((castMember: any, index: number) => ({
+      id: castMember.id || index + 1,
+      role: castMember.role || 'Actor',
+      actor: {
+        id: castMember.actor?.id || index + 1,
+        name: castMember.actor?.name || 'Unknown Actor'
+      }
+    }));
+  }
+  // Handle cast as array of objects
+  else if (Array.isArray(movie.cast)) {
     castsArray = movie.cast.map((castMember: any, index: number) => ({
       id: index + 1,
       role: castMember.role || 'Actor',
@@ -192,3 +270,31 @@ const formatMovieToMediaItem = (movie: any): MediaItem => {
     highlights: movie.highlights
   };
 };
+
+// Debug functions
+export async function debugDatabaseMovies() {
+  const url = `${BASE}/movies/debug/database-movies`;
+  const res = await fetch(url, { headers: defaultHeaders });
+  return handleResponse(res);
+}
+
+export async function checkIndexExists() {
+  const url = `${BASE}/movies/index-exists`;
+  const res = await fetch(url, { headers: defaultHeaders });
+  return handleResponse(res);
+}
+
+export async function syncMovies() {
+  const url = `${BASE}/movies/sync-search`;
+  const res = await fetch(url, { 
+    method: "POST",
+    headers: defaultHeaders 
+  });
+  return handleResponse(res);
+}
+
+export async function testSearch() {
+  const url = `${BASE}/movies/search?query=*&limit=5`;
+  const res = await fetch(url, { headers: defaultHeaders });
+  return handleResponse(res);
+}
