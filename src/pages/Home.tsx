@@ -19,6 +19,29 @@ export default function Home() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [appliedFilters, setAppliedFilters] = useState<any>({});
 
+  // Add this function to show what was parsed
+  const getSearchHints = () => {
+    if (debouncedQuery.length < 2) return null;
+    
+    const hints = [];
+    
+    // Simple pattern detection for user feedback
+    if (debouncedQuery.match(/\d+\s*stars?/)) {
+      hints.push("🌟 Rating filter detected");
+    }
+    if (debouncedQuery.match(/(?:after|since|before)\s+\d{4}/)) {
+      hints.push("📅 Year filter detected");
+    }
+    if (debouncedQuery.match(/older\s+than|newer\s+than/)) {
+      hints.push("⏰ Age filter detected");
+    }
+    if (debouncedQuery.match(/(?:less\s+than|more\s+than|at\s+least)/)) {
+      hints.push("🎯 Smart rating filter detected");
+    }
+    
+    return hints.length > 0 ? hints : null;
+  };
+
   const load = useCallback(async (reset = false) => {
     try {
       setError(null);
@@ -179,15 +202,54 @@ export default function Home() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Try: '5 stars', 'excellent action movies after 2015', 'comedy series', 'older than 10 years'"
+          placeholder="Try: 'less than 4 stars', 'after 2015 batman', 'at least 3 stars comedy', 'older than 5 years'"
           className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-lg"
         />
+        
+        {/* Add search hints under the input */}
+        {getSearchHints() && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {getSearchHints()?.map((hint, index) => (
+              <span
+                key={index}
+                className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full"
+              >
+                {hint}
+              </span>
+            ))}
+          </div>
+        )}
         
         {query.length === 1 && (
           <div className="mt-2 text-sm text-amber-600">
             Enter at least 2 characters to search
           </div>
         )}
+      </div>
+
+      {/* Add example search buttons */}
+      <div className="mb-4">
+        <p className="text-sm text-gray-600 mb-2">Quick examples:</p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            "5 stars",
+            "less than 4 stars",
+            "after 2015",
+            "batman dark knight",
+            "at least 3 stars comedy",
+            "older than 10 years",
+            "since 2020 marvel",
+            "before 2000"
+          ].map((example) => (
+            <button
+              key={example}
+              onClick={() => setQuery(example)}
+              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-blue-100 hover:text-blue-700 transition-colors"
+            >
+              {example}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex gap-2 mb-4">
@@ -295,7 +357,7 @@ export default function Home() {
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
             disabled={loading}
           >
-            Load More Results
+            Load More!
           </button>
         ) : items.length > 0 ? (
           <div className="text-gray-500">

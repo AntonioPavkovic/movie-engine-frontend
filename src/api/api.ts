@@ -25,7 +25,6 @@ export async function fetchTop(type: string, limit = 10, offset = 0): Promise<{
   total: number;
   hasMore: boolean;
 }> {
-  // Convert offset to 0-based page number for backend
   const page = Math.floor(offset / limit);
   
   const url = `${BASE}/movies/top?type=${encodeURIComponent(type)}&limit=${limit}&page=${page}`;
@@ -88,19 +87,7 @@ export async function searchMovies(query: string, type: string, limit = 10, offs
   const page = Math.floor(offset / limit) + 1;
   
 
-  let searchQuery = query;
-  if (type === "MOVIE") {
-    searchQuery = `${query} movies`.trim();
-  } else if (type === "TV_SHOW") {
-    searchQuery = `${query} series`.trim();
-  }
-  
-  const url = `${BASE}/movies/search?query=${encodeURIComponent(searchQuery)}&page=${page}&limit=${limit}`;
-  
-  console.log('Searching movies:', url);
-  console.log('Original query:', query);
-  console.log('Enhanced query:', searchQuery);
-  console.log('Page:', page, 'Offset:', offset);
+  const url = `${BASE}/movies/search?query=${encodeURIComponent(query)}&type=${type}&page=${page}&limit=${limit}`;
 
   const res = await fetch(url, { headers: defaultHeaders });
   const data = await handleResponse(res);
