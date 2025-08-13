@@ -11,25 +11,30 @@ export default function MediaCard({ item, onRate }: Props) {
   const [isRating, setIsRating] = useState(false);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [submittedRating, setSubmittedRating] = useState<number | null>(null);
 
   const handleRate = async (rating: number) => {
     setIsRating(true);
     setError(null);
+    setSubmittedRating(rating); 
+    
     try {
       await onRate(item.id, rating);
+      setTimeout(() => {
+        setSubmittedRating(null);
+      }, 2000);
     } catch (error) {
       console.error('Failed to rate:', error);
       setError('Failed to submit rating. Please try again.');
-      // Clear error after 3 seconds
+      setSubmittedRating(null);
+  
       setTimeout(() => setError(null), 3000);
     } finally {
       setIsRating(false);
     }
   };
 
-  // Safe function to get cast information
   const getCastDisplay = () => {
-    // First try the OpenSearch cast field (string)
     if (item.cast && typeof item.cast === 'string') {
       const castNames = item.cast.split(', ').filter((name: string) => name.trim());
       if (castNames.length === 0) return 'No cast information';
@@ -45,7 +50,6 @@ export default function MediaCard({ item, onRate }: Props) {
       );
     }
     
-    // Then try the original casts field (array)
     if (item.casts && Array.isArray(item.casts) && item.casts.length > 0) {
       const castNames = item.casts
         .map((c) => c.actor.name)
@@ -62,7 +66,6 @@ export default function MediaCard({ item, onRate }: Props) {
     return 'No cast information';
   };
 
-  // Safe function to format release date
   const getFormattedYear = () => {
     if (!item.releaseDate) return 'Unknown';
     try {
@@ -72,15 +75,14 @@ export default function MediaCard({ item, onRate }: Props) {
     }
   };
 
-  // Safe function to format rating
   const getFormattedRating = () => {
     const rating = item.avgRating || 0;
     return typeof rating === 'number' ? rating.toFixed(1) : '0.0';
   };
 
   return (
-    <article className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow duration-200 p-4 flex flex-col">
-      <div className="w-full h-48 overflow-hidden rounded-lg">
+    <article className={`bg-white rounded-lg shadow hover:shadow-lg transition-all duration-200 p-4 flex flex-col ${isRating ? 'ring-2 ring-blue-200' : ''}`}>
+      <div className="w-full h-28 overflow-hidden rounded-lg">
         <CoverImage 
           movieId={item.id}
           title={item.title || 'Unknown Title'}
@@ -117,8 +119,9 @@ export default function MediaCard({ item, onRate }: Props) {
         <div className="text-xs text-gray-500 mb-2">
           Rate this {(item.type || 'item').toLowerCase()}:
         </div>
+        
         <div 
-          className="flex gap-1"
+          className="flex gap-1 relative"
           onMouseLeave={() => setHoveredRating(0)}
         >
           {[1,2,3,4,5].map(rating => (
@@ -128,22 +131,37 @@ export default function MediaCard({ item, onRate }: Props) {
               onMouseEnter={() => setHoveredRating(rating)}
               disabled={isRating}
               className={`
-                px-2 py-1 rounded border text-sm transition-all duration-150
+                px-2 py-1 rounded border text-sm transition-all duration-150 relative
                 ${isRating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-50 hover:border-yellow-300'}
                 ${hoveredRating >= rating ? 'bg-yellow-100 border-yellow-300 text-yellow-700' : 'hover:bg-gray-50'}
+                ${submittedRating === rating ? 'bg-green-100 border-green-300 text-green-700' : ''}
               `}
               aria-label={`Rate ${rating} star${rating !== 1 ? 's' : ''}`}
             >
               {hoveredRating >= rating ? '★' : '☆'}
               <span className="ml-1">{rating}</span>
+          
+              {isRating && submittedRating === rating && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 rounded">
+                  <div className="animate-spin rounded-full h-3 w-3 border border-blue-600 border-t-transparent"></div>
+                </div>
+              )}
             </button>
           ))}
         </div>
+
+ 
         {isRating && (
-          <div className="text-xs text-gray-500 mt-1">Submitting rating...</div>
+          <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
+            <div className="animate-spin rounded-full h-3 w-3 border border-blue-600 border-t-transparent"></div>
+            Submitting {submittedRating}-star rating...
+          </div>
         )}
-        {error && (
-          <div className="text-xs text-red-500 mt-1">{error}</div>
+        
+        {submittedRating && !isRating && !error && (
+          <div className="text-xs text-green-600 mt-2 flex items-center gap-1">
+            Rating submitted successfully!
+          </div>
         )}
       </div>
     </article>

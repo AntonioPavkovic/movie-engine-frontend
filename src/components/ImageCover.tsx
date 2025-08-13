@@ -23,7 +23,7 @@ const CoverImage = ({ movieId, title, className = '', ...props }: CoverImageProp
     return (
       <div className={`w-full h-full flex items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300 rounded text-gray-600 ${className}`} {...props}>
         <div className="text-center p-4">
-          <span className="block text-2xl mb-2">📽️</span>
+          <span className="block text-2xl mb-2"></span>
           <span className="text-sm">{title}</span>
         </div>
       </div>

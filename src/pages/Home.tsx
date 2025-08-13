@@ -31,50 +31,34 @@ export default function Home() {
     return hints.length > 0 ? hints : null;
   };
 
-  // FIXED: Remove 'loading' from dependencies to prevent infinite loop
   const load = useCallback(async (reset = false) => {
     console.log('🚀 load() called with reset:', reset);
     
-    // Use functional state update to get current loading state
     setLoading(currentLoading => {
       if (currentLoading) {
         console.log('⏸️ Already loading, returning early');
-        return currentLoading; // Return current state, don't change it
+        return currentLoading; 
       }
-      return true; // Set loading to true
+      return true; 
     });
 
     try {
       setError(null);
-      console.log('✅ Starting load');
       
       const currentOffset = reset ? 0 : offsetRef.current;
-      console.log('📍 Using offset:', currentOffset);
 
       let result: { items: MediaItem[]; total: number; hasMore: boolean; filters?: any; suggestions?: string[] };
 
       if (debouncedQuery.length >= 2) {
-        console.log('🔍 Calling searchMoviesWithMinLength with:', {
-          query: debouncedQuery,
-          type,
-          limit: LIMIT,
-          offset: currentOffset
-        });
         result = await searchMoviesWithMinLength(debouncedQuery, type, LIMIT, currentOffset);
-        console.log('🔍 searchMoviesWithMinLength returned:', result);
       } else if (debouncedQuery.length === 0) {
-        console.log('🏆 Calling fetchTop with:', { type, limit: LIMIT, offset: currentOffset });
         result = await fetchTop(type, LIMIT, currentOffset);
-        console.log('🏆 fetchTop returned:', result);
       } else {
-        console.log('⏸️ Query too short (length 1), using empty results');
         result = { items: [], total: 0, hasMore: false, filters: {}, suggestions: [] };
       }
 
-      console.log('📦 Final result before state update:', result);
 
       if (reset) {
-        console.log('🔄 Resetting state with new results');
         setItems(result.items);
         setTotalResults(result.total || 0);
         setSuggestions(result.suggestions || []);
@@ -82,24 +66,19 @@ export default function Home() {
         setHasMore(result.hasMore && result.items.length > 0);
         offsetRef.current = result.items.length;
       } else {
-        console.log('➕ Appending results to existing');
         setItems(prev => [...prev, ...result.items]);
         offsetRef.current += result.items.length;
         setHasMore(result.hasMore && result.items.length > 0);
       }
 
-      console.log('✅ State updated successfully');
     } catch (e: any) {
-      console.error("❌ Load error:", e);
       setError(e.message || "Failed to load");
       if (reset) setItems([]);
     } finally {
       setLoading(false);
-      console.log('🏁 Load completed, set loading to false');
     }
-  }, [debouncedQuery, type]); // REMOVED 'loading' from dependencies
+  }, [debouncedQuery, type]);
 
-  // FIXED: Remove 'load' from dependencies and use useCallback properly
   useEffect(() => {
     console.log('🔄 useEffect triggered:', {
       type,
@@ -107,17 +86,15 @@ export default function Home() {
       debouncedQueryLength: debouncedQuery.length
     });
 
-    // Reset state
+
     offsetRef.current = 0;
     setItems([]);
     setHasMore(true);
     
-    console.log('🚀 About to call load(true)');
     load(true);
-  }, [type, debouncedQuery]); // REMOVED 'load' from dependencies
+  }, [type, debouncedQuery]); 
 
   const loadMore = useCallback(() => {
-    console.log('📄 loadMore called');
     load(false);
   }, [load]);
 
@@ -166,28 +143,22 @@ export default function Home() {
 
   return (
     <main className="p-4 max-w-6xl mx-auto relative">
-      <header className="mb-4">
-        <h1 className="text-3xl font-bold text-gray-800">🎬 Movie Database</h1>
-        <p className="text-gray-600 mt-1">Intelligent search with natural language support</p>
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">Movie Engine</h1>
       </header>
 
-      <div className="mb-4">
+      <div className="mb-6">
         <input
           value={query}
           onChange={e => {
-            console.log('✏️ Query changed from', query, 'to', e.target.value);
             setQuery(e.target.value);
           }}
           placeholder="Try: 'less than 4 stars', 'after 2015 batman', 'at least 3 stars comedy', 'older than 5 years'"
-          className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-lg"
+          className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-lg shadow-sm"
         />
         
-        <div className="mt-1 text-xs text-gray-500">
-          Debug: query="{query}" | debounced="{debouncedQuery}" | length={debouncedQuery.length} | loading={loading.toString()}
-        </div>
-        
         {getSearchHints() && (
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             {getSearchHints()?.map((hint, i) => (
               <span key={i} className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">{hint}</span>
             ))}
@@ -196,46 +167,25 @@ export default function Home() {
         {query.length === 1 && <div className="mt-2 text-sm text-amber-600">Enter at least 2 characters to search</div>}
       </div>
 
-      <div className="mb-4">
-        <p className="text-sm text-gray-600 mb-2">Quick examples:</p>
-        <div className="flex flex-wrap gap-2">
-          {["5 stars","less than 4 stars","after 2015","batman dark knight","at least 3 stars comedy","older than 10 years","since 2020 marvel","before 2000"].map(ex => (
-            <button 
-              key={ex} 
-              onClick={() => {
-                console.log('📝 Example button clicked:', ex);
-                setQuery(ex);
-              }}
-              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-blue-100 hover:text-blue-700 transition-colors"
-            >
-              {ex}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-3 mb-6">
         <button
           onClick={() => {
-            console.log('🎬 Type changed to MOVIE');
             setType("MOVIE");
           }}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${type==="MOVIE"?"bg-blue-600 text-white shadow-md":"bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
-          🎬 Movies
+          className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-200 ${type==="MOVIE"?"bg-blue-600 text-white shadow-md transform scale-105":"bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm"}`}>
+          Movies
         </button>
         <button
           onClick={() => {
-            console.log('📺 Type changed to TV_SHOW');
             setType("TV_SHOW");
           }}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${type==="TV_SHOW"?"bg-blue-600 text-white shadow-md":"bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
-          📺 TV Shows
+          className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-200 ${type==="TV_SHOW"?"bg-blue-600 text-white shadow-md transform scale-105":"bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm"}`}>
+          TV Shows
         </button>
       </div>
 
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-gray-700">{getResultsText()}</h2>
-        {items.length>0 && <p className="text-sm text-gray-500">Showing {items.length} of {totalResults||items.length}</p>}
         {getAppliedFiltersText() && <div className="mt-1 text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded">{getAppliedFiltersText()}</div>}
       </div>
 
@@ -252,7 +202,7 @@ export default function Home() {
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          ⚠️ {error}
+          {error}
           <button onClick={()=>setError(null)} className="ml-2 text-red-500 hover:text-red-700">✕</button>
         </div>
       )}
@@ -289,7 +239,7 @@ export default function Home() {
             Load More!
           </button>
         ) : items.length>0 ? (
-          <div className="text-gray-500">🎯 That's all the results!</div>
+          <div className="text-gray-500">That's all the results!</div>
         ) : null}
       </div>
 

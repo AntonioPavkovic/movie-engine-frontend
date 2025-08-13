@@ -37,7 +37,6 @@ export async function fetchTop(type: string, limit = 10, offset = 0): Promise<{
 
     console.log('fetchTop response:', data);
 
-    // Handle your new pagination response format
     if (data.success && data.data) {
       const items = Array.isArray(data.data.movies) 
         ? data.data.movies.map(formatMovieToMediaItem) 
@@ -49,8 +48,6 @@ export async function fetchTop(type: string, limit = 10, offset = 0): Promise<{
         hasMore: data.data.hasMore || false,
       };
     }
-    
-    // Fallback for old format (array response)
     if (Array.isArray(data)) {
       const items = data.map(formatMovieToMediaItem);
       return {
@@ -187,7 +184,6 @@ export async function advancedSearch(query: string, limit = 10, offset = 0): Pro
   };
 }
 
-// Rate movie function (unchanged)
 export async function rateMovie(id: number, rating: number) {
   const url = `${BASE}/movies/${id}/rate`;
   console.log('Rating movie:', id, 'with', rating, 'stars');
@@ -201,12 +197,8 @@ export async function rateMovie(id: number, rating: number) {
   return handleResponse(res);
 }
 
-// Helper function to format backend movie data to frontend MediaItem
 const formatMovieToMediaItem = (movie: any): MediaItem => {
-  // Convert cast data to CastMember array for compatibility
   let castsArray: CastMember[] = [];
-  
-  // Handle cast from OpenSearch (string format)
   if (movie.cast && typeof movie.cast === 'string') {
     castsArray = movie.cast.split(', ')
       .filter((name: string) => name.trim())
@@ -219,7 +211,7 @@ const formatMovieToMediaItem = (movie: any): MediaItem => {
         }
       }));
   } 
-  // Handle cast from database (array format)
+
   else if (movie.casts && Array.isArray(movie.casts)) {
     castsArray = movie.casts.map((castMember: any, index: number) => ({
       id: castMember.id || index + 1,
@@ -230,7 +222,7 @@ const formatMovieToMediaItem = (movie: any): MediaItem => {
       }
     }));
   }
-  // Handle cast as array of objects
+
   else if (Array.isArray(movie.cast)) {
     castsArray = movie.cast.map((castMember: any, index: number) => ({
       id: index + 1,
@@ -252,36 +244,8 @@ const formatMovieToMediaItem = (movie: any): MediaItem => {
     avgRating: typeof movie.avgRating === 'number' ? movie.avgRating : 0,
     ratingsCount: typeof movie.ratingsCount === 'number' ? movie.ratingsCount : 0,
     casts: castsArray,
-    cast: movie.cast, // Keep original cast data for fallback
+    cast: movie.cast,
     score: movie.score,
     highlights: movie.highlights
   };
 };
-
-// Debug functions
-export async function debugDatabaseMovies() {
-  const url = `${BASE}/movies/debug/database-movies`;
-  const res = await fetch(url, { headers: defaultHeaders });
-  return handleResponse(res);
-}
-
-export async function checkIndexExists() {
-  const url = `${BASE}/movies/index-exists`;
-  const res = await fetch(url, { headers: defaultHeaders });
-  return handleResponse(res);
-}
-
-export async function syncMovies() {
-  const url = `${BASE}/movies/sync-search`;
-  const res = await fetch(url, { 
-    method: "POST",
-    headers: defaultHeaders 
-  });
-  return handleResponse(res);
-}
-
-export async function testSearch() {
-  const url = `${BASE}/movies/search?query=*&limit=5`;
-  const res = await fetch(url, { headers: defaultHeaders });
-  return handleResponse(res);
-}
