@@ -24,19 +24,17 @@ export default function Home() {
   const getSearchHints = () => {
     if (debouncedQuery.length < 2) return null;
     const hints = [];
-    if (debouncedQuery.match(/\d+\s*stars?/)) hints.push("🌟 Rating filter detected");
-    if (debouncedQuery.match(/(?:after|since|before)\s+\d{4}/)) hints.push("📅 Year filter detected");
-    if (debouncedQuery.match(/older\s+than|newer\s+than/)) hints.push("⏰ Age filter detected");
-    if (debouncedQuery.match(/(?:less\s+than|more\s+than|at\s+least)/)) hints.push("🎯 Smart rating filter detected");
+    if (debouncedQuery.match(/\d+\s*stars?/)) hints.push("Rating filter detected");
+    if (debouncedQuery.match(/(?:after|since|before)\s+\d{4}/)) hints.push("Year filter detected");
+    if (debouncedQuery.match(/older\s+than|newer\s+than/)) hints.push("Age filter detected");
+    if (debouncedQuery.match(/(?:less\s+than|more\s+than|at\s+least)/)) hints.push("Smart rating filter detected");
     return hints.length > 0 ? hints : null;
   };
 
   const load = useCallback(async (reset = false) => {
-    console.log('🚀 load() called with reset:', reset);
     
     setLoading(currentLoading => {
       if (currentLoading) {
-        console.log('⏸️ Already loading, returning early');
         return currentLoading; 
       }
       return true; 
@@ -148,15 +146,19 @@ export default function Home() {
       </header>
 
       <div className="mb-6">
-        <input
-          value={query}
-          onChange={e => {
-            setQuery(e.target.value);
-          }}
-          placeholder="Try: 'less than 4 stars', 'after 2015 batman', 'at least 3 stars comedy', 'older than 5 years'"
-          className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-lg shadow-sm"
-        />
-        
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Try: 'less than 4 stars', 'after 2015 batman', 'at least 3 stars comedy', 'older than 5 years'"
+            className="w-full border-2 border-gray-300 rounded-2xl focus:border-blue-500 focus:outline-none shadow-lg font-medium"
+            style={{
+              height: '8px',
+              width: '250px',
+              fontSize: '20px',
+              padding: '25px 35px',
+              lineHeight: '1.3'
+            }}
+          />
         {getSearchHints() && (
           <div className="mt-3 flex flex-wrap gap-2">
             {getSearchHints()?.map((hint, i) => (
