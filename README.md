@@ -26,3 +26,7 @@ $ npm run dev
 ![App Screenshot](./assets/img3.JPG)
 
 - example img of rating a movie and change of the rating avg
+
+
+# Disclaimer
+- env file is pushed simply for the reason of easier dev setup
